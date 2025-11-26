@@ -1,0 +1,5 @@
+{
+  "name": "AutoCost - AI Construction Unit Price Analyst",
+  "description": "Professional Construction Unit Price Analysis (일위대가) tool. Generate detailed breakdowns of materials, labor, and expenses for construction tasks using Gemini and standard estimation data.",
+  "requestFramePermissions": []
+}
