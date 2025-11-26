@@ -1,14 +1,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UnitAnalysis, AnalysisItem } from "../types";
 
-// Always use process.env.API_KEY as per guidelines.
-// Assume process.env.API_KEY is pre-configured, valid, and accessible.
-const ai = new GoogleGenAI({ apiKey: import.meta.env.API_KEY });
+// Initialize Gemini AI
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
 
 /**
  * Generates a detailed Unit Price Analysis (일위대가) for a specific construction task.
  */
 export const generateUnitAnalysis = async (taskName: string, preferredCategory?: string): Promise<UnitAnalysis> => {
+  if (!process.env.API_KEY) {
+    alert("API Key가 설정되지 않았습니다. 환경변수 API_KEY를 확인해주세요.");
+    throw new Error("API Key missing");
+  }
+
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
