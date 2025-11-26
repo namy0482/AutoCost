@@ -1,13 +1,14 @@
 import React, { useMemo } from 'react';
 import { UnitAnalysis } from '../types';
-import { FileText, FolderOpen, ChevronRight, CornerDownRight } from 'lucide-react';
+import { FileText, FolderOpen, ChevronRight, CornerDownRight, Trash2 } from 'lucide-react';
 
 interface AnalysisListTableProps {
   analyses: UnitAnalysis[];
   onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
-export const AnalysisListTable: React.FC<AnalysisListTableProps> = ({ analyses, onSelect }) => {
+export const AnalysisListTable: React.FC<AnalysisListTableProps> = ({ analyses, onSelect, onDelete }) => {
   
   const formatNumber = (num: number) => num.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
@@ -76,7 +77,7 @@ export const AnalysisListTable: React.FC<AnalysisListTableProps> = ({ analyses, 
               <th className={`${headerColClass} w-28 text-amber-600 bg-amber-50/30 text-center`}>경비</th>
               
               <th className="px-3 py-3 border-b text-xs uppercase text-right font-bold text-slate-800 w-28 bg-slate-100/50 border-r border-slate-200">합계단가</th>
-              <th className="px-2 py-3 border-b text-center w-12"></th>
+              <th className="px-2 py-3 border-b text-center w-20"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -133,8 +134,18 @@ export const AnalysisListTable: React.FC<AnalysisListTableProps> = ({ analyses, 
                                         {formatNumber(grandTotal)}
                                     </td>
                                     
-                                    <td className="px-2 py-2 text-center">
-                                            <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all mx-auto" />
+                                    <td className="px-2 py-2 text-center flex items-center justify-center">
+                                         <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDelete(analysis.id);
+                                            }}
+                                            className="p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all mr-1"
+                                            title="삭제"
+                                         >
+                                            <Trash2 className="w-4 h-4" />
+                                         </button>
+                                        <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
                                     </td>
                                 </tr>
                             );

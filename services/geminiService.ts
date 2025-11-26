@@ -1,6 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { UnitAnalysis, AnalysisItem } from "../types";
 
+// Always use process.env.API_KEY as per guidelines.
+// Assume process.env.API_KEY is pre-configured, valid, and accessible.
 const ai = new GoogleGenAI({ apiKey: import.meta.env.API_KEY });
 
 /**
