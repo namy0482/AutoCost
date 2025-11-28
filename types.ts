@@ -62,7 +62,8 @@ export interface EstimateEntry {
   name: string;       // Category Name or Item Name
   specification: string;
   unit: string;
-  quantity: number;   
+  quantity: number;
+  quantityFormula?: string;   
   analysisId?: string; // Link to UnitAnalysis
   note?: string;
 }
@@ -79,6 +80,14 @@ export interface Client {
   memo: string;           // 메모
 }
 
+// Company / Contractor Type
+export interface Company extends Client {
+    businessNumber?: string;
+    ownerName?: string;
+}
+
+export type Contractor = Company;
+
 // Project Overview Type
 export interface ProjectOverview {
   projectName: string;    // 공사명
@@ -89,4 +98,11 @@ export interface ProjectOverview {
   startDate: string;      // 공사시작일
   endDate: string;        // 공사종료일
   description: string;    // 공사개요 설명
+}
+
+// Data structure for imported Excel data
+export interface ImportedData {
+  overview?: ProjectOverview;
+  analyses?: UnitAnalysis[];
+  estimateItems?: EstimateEntry[];
 }

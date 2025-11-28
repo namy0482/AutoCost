@@ -11,14 +11,15 @@ const HardHat = ({ className }: { className?: string }) => (
 interface ProjectOverviewProps {
   overview: ProjectOverview;
   onUpdate: (field: keyof ProjectOverview, value: string) => void;
-  onClientClick: () => void; // New prop for handling client input click
+  onClientClick: () => void;
+  onContractorClick: () => void;
 }
 
 interface InputGroupProps {
   label: string;
   icon: any;
   value: string;
-  onChange?: (value: string) => void; // Made optional for readonly case
+  onChange?: (value: string) => void;
   type?: string;
   placeholder?: string;
   readOnly?: boolean;
@@ -58,7 +59,7 @@ const InputGroup: React.FC<InputGroupProps> = ({
   </div>
 );
 
-export const ProjectOverviewView: React.FC<ProjectOverviewProps> = ({ overview, onUpdate, onClientClick }) => {
+export const ProjectOverviewView: React.FC<ProjectOverviewProps> = ({ overview, onUpdate, onClientClick, onContractorClick }) => {
   
   // Calculate Duration
   const durationDays = useMemo(() => {
@@ -192,8 +193,9 @@ export const ProjectOverviewView: React.FC<ProjectOverviewProps> = ({ overview, 
                             label="시공사 (Contractor)" 
                             icon={HardHat} 
                             value={overview.contractor}
-                            onChange={(val) => onUpdate('contractor', val)}
-                            placeholder="예: (주)시공건설" 
+                            placeholder="선택하세요..."
+                            readOnly={true}
+                            onClick={onContractorClick}
                         />
                     </div>
                 </div>

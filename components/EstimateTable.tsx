@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useMemo } from 'react';
-import { Trash2, FolderPlus, FilePlus, FilePlus2, AlertCircle, ChevronDown, Search, GripVertical, RefreshCw } from 'lucide-react';
+import { Trash2, FolderPlus, FilePlus, FilePlus2, AlertCircle, ChevronDown, Search, GripVertical, RefreshCw, Calculator } from 'lucide-react';
 import { EstimateEntry, UnitAnalysis } from '../types';
 import { CONSTRUCTION_CATEGORIES } from '../constants';
 
@@ -14,6 +15,7 @@ interface EstimateTableProps {
   onLinkAnalysis: (itemId: string) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   onImportAnalyses: () => void;
+  onOpenCalculator: (itemId: string) => void;
 }
 
 export const EstimateTable: React.FC<EstimateTableProps> = ({ 
@@ -26,7 +28,8 @@ export const EstimateTable: React.FC<EstimateTableProps> = ({
   onUpdateItem,
   onLinkAnalysis,
   onReorder,
-  onImportAnalyses
+  onImportAnalyses,
+  onOpenCalculator
 }) => {
   
   const [activeCategoryMenuId, setActiveCategoryMenuId] = useState<string | null>(null);
@@ -360,13 +363,25 @@ export const EstimateTable: React.FC<EstimateTableProps> = ({
                   </td>
 
                   {/* Quantity */}
-                  <td className="px-2 py-2 border-r border-slate-100 bg-yellow-50/20">
-                    <input 
-                        type="number" 
-                        value={item.quantity} 
-                        onChange={(e) => onUpdateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                        className="w-full bg-transparent border-none focus:ring-0 p-0 text-right font-semibold text-slate-800 text-sm"
-                    />
+                  <td className="px-2 py-2 border-r border-slate-100 bg-yellow-50/20 group/qty relative">
+                    <div className="flex items-center justify-end">
+                        <input 
+                            type="number" 
+                            value={item.quantity} 
+                            onChange={(e) => onUpdateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                            className="w-full bg-transparent border-none focus:ring-0 p-0 text-right font-semibold text-slate-800 text-sm"
+                        />
+                         <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenCalculator(item.id);
+                            }}
+                            className="ml-1 p-0.5 rounded hover:bg-black/5 text-slate-400 hover:text-indigo-600 opacity-0 group-hover/qty:opacity-100 transition-opacity"
+                            title="수량 산출 계산기"
+                         >
+                            <Calculator className="w-3 h-3" />
+                         </button>
+                    </div>
                   </td>
 
                   {/* Material: Unit Price & Amount */}

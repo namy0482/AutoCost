@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { EstimateEntry, UnitAnalysis } from '../types';
-import { ScrollText, Calculator } from 'lucide-react';
+import { ScrollText, Calculator, List } from 'lucide-react';
+import { RateSelectionModal } from './RateSelectionModal';
 
 interface CostStatementProps {
   items: EstimateEntry[];
@@ -12,8 +13,7 @@ export const CostStatement: React.FC<CostStatementProps> = ({ items, analyses })
   
   const formatNumber = (num: number) => num.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
-  // 1. Calculate Direct Costs from Estimate (Matching Summary Sheet Logic)
-  // This respects the hierarchy: Category Quantity * Sum(Item Cost * Item Quantity)
+  // 1. Calculate Direct Costs from Estimate
   const directCosts = useMemo(() => {
     let totalMat = 0, totalLab = 0, totalExp = 0;
     
@@ -31,13 +31,9 @@ export const CostStatement: React.FC<CostStatementProps> = ({ items, analyses })
 
     items.forEach(item => {
         if (item.type === 'CATEGORY') {
-            // Flush previous category
             pushCategory(currentCategory, subtotal);
-            
-            // Start new category
             currentCategory = item;
             subtotal = { mat: 0, lab: 0, exp: 0 };
-
         } else if (item.type === 'ITEM' && item.analysisId) {
              const analysis = analyses.find(a => a.id === item.analysisId);
              if (analysis) {
@@ -47,8 +43,6 @@ export const CostStatement: React.FC<CostStatementProps> = ({ items, analyses })
                     l += i.laborUnitPrice * i.quantity;
                     e += i.expenseUnitPrice * i.quantity;
                 });
-                
-                // Item cost = Unit Price * Item Quantity
                 const q = item.quantity || 0;
                 subtotal.mat += m * q;
                 subtotal.lab += l * q;
@@ -56,56 +50,95 @@ export const CostStatement: React.FC<CostStatementProps> = ({ items, analyses })
              }
         }
     });
-    
-    // Flush last category
     pushCategory(currentCategory, subtotal);
 
     return { mat: totalMat, lab: totalLab, exp: totalExp };
   }, [items, analyses]);
 
-  // 2. State for Rates (Default rates approx for 2025)
+  // 2. State for Rates
   const [rates, setRates] = useState({
-    indirectLabor: 14.5, // 간접노무비
-    employmentIns: 1.15, // 고용보험료
-    healthIns: 3.545,    // 건강보험료
-    pension: 4.5,        // 국민연금보험료
-    seniorCare: 12.95,   // 노인장기요양보험료 (of Health)
-    safetyMgmt: 1.81,    // 산업안전보건관리비
-    otherExpense: 5.5,   // 기타경비
-    genAdmin: 5.0,       // 일반관리비
-    profit: 10.0,        // 이윤
-    vat: 10.0            // 부가가치세
+    indirectLabor: 14.5,    
+    employmentIns: 1.03,    
+    indAccident: 3.70,      
+    healthIns: 3.545,       
+    seniorCare: 12.95,      
+    pension: 4.50,          
+    retire: 2.30,           
+    safetyMgmt: 1.86,       
+    envCons: 0.50,          
+    machineGuarantee: 0.07, 
+    subGuarantee: 0.081,    
+    perfGuarantee: 0.10,    
+    otherExpense: 5.5,      
+    genAdmin: 6.0,          
+    profit: 15.0,           
+    vat: 10.0               
   });
+
+  // Rate Selection Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [activeRateKey, setActiveRateKey] = useState<string | null>(null);
 
   const handleRateChange = (key: keyof typeof rates, value: string) => {
     setRates(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
   };
 
+  const openRateModal = (key: string) => {
+      setActiveRateKey(key);
+      setModalOpen(true);
+  };
+
+  const handleRateSelect = (value: number) => {
+      if (activeRateKey && activeRateKey in rates) {
+          setRates(prev => ({ ...prev, [activeRateKey]: value }));
+      }
+  };
+
   // 3. Calculate Derived Costs
   const indirectLabor = Math.floor(directCosts.lab * (rates.indirectLabor / 100));
   const totalLabor = directCosts.lab + indirectLabor;
-
-  const employmentIns = Math.floor(directCosts.lab * (rates.employmentIns / 100));
-  const healthIns = Math.floor(directCosts.lab * (rates.healthIns / 100));
-  const pension = Math.floor(directCosts.lab * (rates.pension / 100));
-  const seniorCare = Math.floor(healthIns * (rates.seniorCare / 100));
   
-  // Safety Mgmt is typically % of (Direct Material + Direct Labor)
-  const safetyBase = directCosts.mat + directCosts.lab;
-  const safetyMgmt = Math.floor(safetyBase * (rates.safetyMgmt / 100));
+  const laborBase = directCosts.lab; 
+  const matLabBase = directCosts.mat + directCosts.lab;
+  const matLabIndBase = directCosts.mat + totalLabor; 
+  const directTotalBase = directCosts.mat + directCosts.lab + directCosts.exp;
 
-  // Other Expense is typically % of (Material + Labor)
-  const otherExpense = Math.floor((directCosts.mat + totalLabor) * (rates.otherExpense / 100));
+  const employmentIns = Math.floor(laborBase * (rates.employmentIns / 100));
+  const indAccident = Math.floor(laborBase * (rates.indAccident / 100));
+  const healthIns = Math.floor(laborBase * (rates.healthIns / 100));
+  const seniorCare = Math.floor(healthIns * (rates.seniorCare / 100));
+  const pension = Math.floor(laborBase * (rates.pension / 100));
+  const retire = Math.floor(laborBase * (rates.retire / 100));
+  
+  const safetyMgmt = Math.floor(matLabBase * (rates.safetyMgmt / 100));
+  const envCons = Math.floor(directTotalBase * (rates.envCons / 100));
+  
+  const machineGuarantee = Math.floor(directTotalBase * (rates.machineGuarantee / 100));
+  const subGuarantee = Math.floor(matLabBase * (rates.subGuarantee / 100));
+  const perfGuarantee = Math.floor(matLabBase * (rates.perfGuarantee / 100));
+  
+  const otherExpense = Math.floor(matLabIndBase * (rates.otherExpense / 100));
 
-  const totalExpense = directCosts.exp + employmentIns + healthIns + pension + seniorCare + safetyMgmt + otherExpense;
+  const totalExpense = 
+    directCosts.exp + 
+    employmentIns + 
+    indAccident +
+    healthIns + 
+    seniorCare + 
+    pension + 
+    retire +
+    safetyMgmt + 
+    envCons +
+    machineGuarantee +
+    subGuarantee +
+    perfGuarantee +
+    otherExpense;
   
   const pureCost = directCosts.mat + totalLabor + totalExpense;
 
   const genAdmin = Math.floor(pureCost * (rates.genAdmin / 100));
-  
   const costSum = pureCost + genAdmin;
 
-  // Profit is typically % of (Labor + Expense + GenAdmin) - Excluding Material
   const profitBase = totalLabor + totalExpense + genAdmin;
   const profit = Math.floor(profitBase * (rates.profit / 100));
 
@@ -115,15 +148,22 @@ export const CostStatement: React.FC<CostStatementProps> = ({ items, analyses })
 
   const renderRow = (title: string, formula: string, rateValue: number | null, amount: number, indent: number = 0, isBold: boolean = false, rateKey?: keyof typeof rates, rateSuffix: string = '%') => (
     <tr className={`hover:bg-slate-50 border-b border-slate-100 ${isBold ? 'bg-slate-50/50' : ''}`}>
-      <td className={`px-4 py-3 text-slate-700 ${isBold ? 'font-bold' : ''} border-r border-slate-200`} style={{ paddingLeft: `${indent * 20 + 16}px` }}>
+      <td className={`px-4 py-2 text-slate-700 ${isBold ? 'font-bold' : ''} border-r border-slate-200`} style={{ paddingLeft: `${indent * 20 + 16}px` }}>
         {title}
       </td>
-      <td className="px-4 py-3 text-slate-500 text-xs border-r border-slate-200">
+      <td className="px-4 py-2 text-slate-500 text-xs border-r border-slate-200">
         {formula}
       </td>
-      <td className="px-4 py-3 text-right border-r border-slate-200">
+      <td className="px-4 py-2 text-right border-r border-slate-200">
         {rateKey ? (
             <div className="flex items-center justify-end gap-1">
+                <button 
+                    onClick={() => openRateModal(rateKey)}
+                    className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                    title="요율표 보기"
+                >
+                    <List className="w-3.5 h-3.5" />
+                </button>
                 <input 
                     type="number" 
                     value={rateValue || 0}
@@ -137,12 +177,10 @@ export const CostStatement: React.FC<CostStatementProps> = ({ items, analyses })
             rateValue !== null && <span className="text-slate-600 text-sm">{rateValue}{rateSuffix}</span>
         )}
       </td>
-      <td className={`px-4 py-3 text-right border-r border-slate-200 ${isBold ? 'font-bold text-slate-900' : 'text-slate-700 font-medium'}`}>
+      <td className={`px-4 py-2 text-right border-r border-slate-200 ${isBold ? 'font-bold text-slate-900' : 'text-slate-700 font-medium'}`}>
         {formatNumber(amount)}
       </td>
-      <td className="px-4 py-3 text-slate-400 text-xs">
-          {/* Remarks */}
-      </td>
+      <td className="px-4 py-2 text-slate-400 text-xs"></td>
     </tr>
   );
 
@@ -157,7 +195,7 @@ export const CostStatement: React.FC<CostStatementProps> = ({ items, analyses })
                     <h2 className="font-bold text-slate-800">공사 원가계산서 (Cost Calculation Sheet)</h2>
                </div>
                <div className="text-xs text-slate-500 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-                   ※ 요율은 현장 상황 및 법규에 따라 수정하여 사용하세요. (2025년 기준 예시)
+                   ※ 돋보기 아이콘을 눌러 조달청 기준 요율을 확인할 수 있습니다.
                </div>
             </div>
             
@@ -165,11 +203,11 @@ export const CostStatement: React.FC<CostStatementProps> = ({ items, analyses })
                 <table className="w-full text-sm text-left border-collapse">
                     <thead className="bg-slate-50 text-slate-500 sticky top-0 z-10 shadow-sm">
                         <tr>
-                            <th className="px-4 py-3 border-b border-r border-slate-200 w-[30%] text-center uppercase font-semibold">비목 (Item)</th>
-                            <th className="px-4 py-3 border-b border-r border-slate-200 w-[25%] text-center uppercase font-semibold">산출식 (Formula)</th>
-                            <th className="px-4 py-3 border-b border-r border-slate-200 w-[15%] text-center uppercase font-semibold">요율 (Rate)</th>
-                            <th className="px-4 py-3 border-b border-r border-slate-200 w-[20%] text-center uppercase font-semibold">금액 (Amount)</th>
-                            <th className="px-4 py-3 border-b text-center uppercase font-semibold">비고</th>
+                            <th className="px-4 py-2 border-b border-r border-slate-200 w-[35%] text-center uppercase font-semibold">비목 (Item)</th>
+                            <th className="px-4 py-2 border-b border-r border-slate-200 w-[20%] text-center uppercase font-semibold">산출식 (Formula)</th>
+                            <th className="px-4 py-2 border-b border-r border-slate-200 w-[15%] text-center uppercase font-semibold">요율 (Rate)</th>
+                            <th className="px-4 py-2 border-b border-r border-slate-200 w-[20%] text-center uppercase font-semibold">금액 (Amount)</th>
+                            <th className="px-4 py-2 border-b text-center uppercase font-semibold">비고</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -183,41 +221,47 @@ export const CostStatement: React.FC<CostStatementProps> = ({ items, analyses })
                         {renderRow('간접노무비', '직접노무비 × 요율', rates.indirectLabor, indirectLabor, 1, false, 'indirectLabor')}
 
                         {/* Expense */}
-                        {renderRow('3. 경비', '직접경비 + 산출경비', null, totalExpense, 0, true)}
+                        {renderRow('3. 경비', '하위 항목 합계', null, totalExpense, 0, true)}
                         {renderRow('산출경비 (기계경비 등)', '공사집계표 합계', null, directCosts.exp, 1)}
                         {renderRow('고용보험료', '직접노무비 × 요율', rates.employmentIns, employmentIns, 1, false, 'employmentIns')}
+                        {renderRow('산재보험료', '직접노무비 × 요율', rates.indAccident, indAccident, 1, false, 'indAccident')}
                         {renderRow('국민건강보험료', '직접노무비 × 요율', rates.healthIns, healthIns, 1, false, 'healthIns')}
-                        {renderRow('국민연금보험료', '직접노무비 × 요율', rates.pension, pension, 1, false, 'pension')}
                         {renderRow('노인장기요양보험료', '건강보험료 × 요율', rates.seniorCare, seniorCare, 1, false, 'seniorCare')}
-                        {renderRow('산업안전보건관리비', '(재료비+직노비) × 요율', rates.safetyMgmt, safetyMgmt, 1, false, 'safetyMgmt')}
-                        {renderRow('기타경비', '(재료비+노무비) × 요율', rates.otherExpense, otherExpense, 1, false, 'otherExpense')}
+                        {renderRow('국민연금보험료', '직접노무비 × 요율', rates.pension, pension, 1, false, 'pension')}
+                        {renderRow('퇴직공제부금비', '직접노무비 × 요율', rates.retire, retire, 1, false, 'retire')}
+                        {renderRow('산업안전보건관리비', '(재료+직노) × 요율', rates.safetyMgmt, safetyMgmt, 1, false, 'safetyMgmt')}
+                        {renderRow('환경보전비', '(재료+직노+경비) × 요율', rates.envCons, envCons, 1, false, 'envCons')}
+                        {renderRow('건설기계대여금지급보증액발급금액', '(재료+직노+경비) × 요율', rates.machineGuarantee, machineGuarantee, 1, false, 'machineGuarantee')}
+                        {renderRow('건설하도급대금지급보증서발급수수료', '(재료+직노) × 요율', rates.subGuarantee, subGuarantee, 1, false, 'subGuarantee')}
+                        {renderRow('공사이행보증수수료', '(재료+직노) × 요율', rates.perfGuarantee, perfGuarantee, 1, false, 'perfGuarantee')}
+                        {renderRow('기타경비', '(재료+노무) × 요율', rates.otherExpense, otherExpense, 1, false, 'otherExpense')}
 
                         {/* Pure Cost */}
                         <tr className="bg-slate-100/80 font-bold border-y border-slate-300">
-                            <td className="px-4 py-3 text-slate-800 border-r border-slate-200">4. 순공사원가 (계)</td>
-                            <td className="px-4 py-3 text-slate-500 text-xs border-r border-slate-200">재료비 + 노무비 + 경비</td>
-                            <td className="px-4 py-3 border-r border-slate-200"></td>
-                            <td className="px-4 py-3 text-right text-indigo-900 text-base border-r border-slate-200">{formatNumber(pureCost)}</td>
+                            <td className="px-4 py-2 text-slate-800 border-r border-slate-200">4. 순공사원가 (계)</td>
+                            <td className="px-4 py-2 text-slate-500 text-xs border-r border-slate-200">재료비 + 노무비 + 경비</td>
+                            <td className="px-4 py-2 border-r border-slate-200"></td>
+                            <td className="px-4 py-2 text-right text-indigo-900 text-base border-r border-slate-200">{formatNumber(pureCost)}</td>
                             <td></td>
                         </tr>
 
                         {renderRow('5. 일반관리비', '순공사원가 × 요율', rates.genAdmin, genAdmin, 0, false, 'genAdmin')}
                         
                         <tr className="bg-slate-50 font-semibold border-b border-slate-200">
-                            <td className="px-4 py-3 text-slate-800 border-r border-slate-200">6. 총 원가</td>
-                            <td className="px-4 py-3 text-slate-500 text-xs border-r border-slate-200">순공사원가 + 일반관리비</td>
-                            <td className="px-4 py-3 border-r border-slate-200"></td>
-                            <td className="px-4 py-3 text-right text-slate-800 border-r border-slate-200">{formatNumber(costSum)}</td>
+                            <td className="px-4 py-2 text-slate-800 border-r border-slate-200">6. 총 원가</td>
+                            <td className="px-4 py-2 text-slate-500 text-xs border-r border-slate-200">순공사원가 + 일반관리비</td>
+                            <td className="px-4 py-2 border-r border-slate-200"></td>
+                            <td className="px-4 py-2 text-right text-slate-800 border-r border-slate-200">{formatNumber(costSum)}</td>
                             <td></td>
                         </tr>
 
                         {renderRow('7. 이윤', '(노+경+일) × 요율', rates.profit, profit, 0, false, 'profit')}
 
                         <tr className="bg-slate-50 font-semibold border-b border-slate-200">
-                            <td className="px-4 py-3 text-slate-800 border-r border-slate-200">8. 공급가액</td>
-                            <td className="px-4 py-3 text-slate-500 text-xs border-r border-slate-200">총 원가 + 이윤</td>
-                            <td className="px-4 py-3 border-r border-slate-200"></td>
-                            <td className="px-4 py-3 text-right text-slate-800 border-r border-slate-200">{formatNumber(supplyPrice)}</td>
+                            <td className="px-4 py-2 text-slate-800 border-r border-slate-200">8. 공급가액</td>
+                            <td className="px-4 py-2 text-slate-500 text-xs border-r border-slate-200">총 원가 + 이윤</td>
+                            <td className="px-4 py-2 border-r border-slate-200"></td>
+                            <td className="px-4 py-2 text-right text-slate-800 border-r border-slate-200">{formatNumber(supplyPrice)}</td>
                             <td></td>
                         </tr>
 
@@ -266,6 +310,14 @@ export const CostStatement: React.FC<CostStatementProps> = ({ items, analyses })
              </div>
           </div>
       </div>
+      
+      {/* Rate Selection Modal */}
+      <RateSelectionModal 
+        isOpen={modalOpen} 
+        onClose={() => setModalOpen(false)} 
+        rateKey={activeRateKey || ''}
+        onSelect={handleRateSelect}
+      />
     </div>
   );
 };

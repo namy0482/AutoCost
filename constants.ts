@@ -1,5 +1,5 @@
 
-import { UnitAnalysis, Client } from './types';
+import { UnitAnalysis, Client, Contractor } from './types';
 
 export const INITIAL_CLIENTS: Client[] = [
   {
@@ -22,6 +22,19 @@ export const INITIAL_CLIENTS: Client[] = [
     email: 'lee@seoul.go.kr',
     memo: '관급 공사'
   }
+];
+
+export const INITIAL_CONTRACTORS: Contractor[] = [
+    {
+        id: 'con1',
+        name: '(주)성실시공',
+        contactPerson: '박현장',
+        department: '공사부',
+        mobile: '010-5555-6666',
+        phone: '031-555-6666',
+        email: 'park@sungsil.com',
+        memo: '기본 시공사',
+    }
 ];
 
 export const INITIAL_ANALYSES: UnitAnalysis[] = [
@@ -113,6 +126,99 @@ export const COLORS = {
   material: '#3b82f6', // Blue 500
   labor: '#10b981',    // Emerald 500
   expense: '#f59e0b',  // Amber 500
+};
+
+// 2025년 조달청/국토부 기준 제비율 데이터 (예시)
+export const COST_MARKET_RATES: Record<string, { title: string, headers: string[], data: string[][] }> = {
+    indirectLabor: {
+        title: "간접노무비 (2025 조달청 적용기준)",
+        headers: ["공사기간", "건축공사", "토목공사", "특수공사"],
+        data: [
+            ["6개월 이하", "14.3%", "15.0%", "14.7%"],
+            ["7 ~ 12개월", "14.5%", "15.1%", "14.9%"],
+            ["13 ~ 36개월", "14.7%", "15.2%", "15.1%"],
+            ["36개월 초과", "14.9%", "15.4%", "15.2%"]
+        ]
+    },
+    otherExpense: {
+        title: "기타경비 (2025 조달청 적용기준)",
+        headers: ["공사기간", "건축공사", "토목공사", "특수공사"],
+        data: [
+            ["6개월 이하", "5.6%", "5.2%", "5.8%"],
+            ["7 ~ 12개월", "5.8%", "5.5%", "6.1%"],
+            ["13 ~ 36개월", "6.1%", "5.9%", "6.5%"],
+            ["36개월 초과", "6.4%", "6.3%", "6.8%"]
+        ]
+    },
+    genAdmin: {
+        title: "일반관리비 (국가계약법 시행규칙)",
+        headers: ["공사규모 (추정가격)", "비율"],
+        data: [
+            ["50억원 미만", "6.0%"],
+            ["50억원 ~ 300억원 미만", "5.5%"],
+            ["300억원 이상", "5.0%"]
+        ]
+    },
+    profit: {
+        title: "이윤 (조달청 기준)",
+        headers: ["구분", "비율"],
+        data: [
+            ["일반 공사 (기술료 제외)", "15.0%"],
+            ["제조 및 구매", "25.0% 이내"]
+        ]
+    },
+    safetyMgmt: {
+        title: "산업안전보건관리비 (노동부 고시)",
+        headers: ["대상액 (재료비+직노)", "건설업(일반)", "특수건설"],
+        data: [
+            ["5억원 미만", "2.93%", "1.86%"],
+            ["5억원 ~ 50억원", "1.86%", "1.86%"],
+            ["50억원 이상", "1.97%", "1.86%"]
+        ]
+    },
+    envCons: {
+        title: "환경보전비 (표준품셈)",
+        headers: ["공사종류", "비율"],
+        data: [
+            ["건축공사 (신축)", "0.3%"],
+            ["건축공사 (재개발)", "0.5%"],
+            ["토목공사", "0.8%"],
+            ["주택공사", "0.4%"]
+        ]
+    },
+    employmentIns: {
+        title: "고용보험료 (2025 고시)",
+        headers: ["구분", "비율"],
+        data: [
+            ["일반 건설 공사", "1.03%"],
+            ["등급 적용 공사", "등급별 상이"]
+        ]
+    },
+    indAccident: {
+        title: "산재보험료 (2025 고시)",
+        headers: ["구분", "비율"],
+        data: [
+            ["건설업 총괄", "3.70%"],
+            ["해외 파견", "1.70%"]
+        ]
+    },
+    pension: {
+        title: "국민연금 / 건강보험 (2025)",
+        headers: ["구분", "비율"],
+        data: [
+            ["국민연금보험료", "4.50%"],
+            ["국민건강보험료", "3.545%"],
+            ["노인장기요양 (건보료의)", "12.95%"]
+        ]
+    },
+    retire: {
+        title: "퇴직공제부금비",
+        headers: ["대상", "비율"],
+        data: [
+            ["50억원 미만 (임의)", "2.30%"],
+            ["50억원 이상 (의무)", "2.30%"]
+        ]
+    }
 };
 
 export const CONSTRUCTION_CATEGORIES = [

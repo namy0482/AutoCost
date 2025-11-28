@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { UnitAnalysis, AnalysisItem, CostSummary, AppState, ViewMode, EstimateEntry, EstimateType, ProjectOverview, Client } from './types';
-import { INITIAL_ANALYSES, CONSTRUCTION_CATEGORIES, INITIAL_CLIENTS } from './constants';
+import { UnitAnalysis, AnalysisItem, CostSummary, AppState, ViewMode, EstimateEntry, EstimateType, ProjectOverview, Client, Contractor, Company } from './types';
+import { INITIAL_ANALYSES, CONSTRUCTION_CATEGORIES, INITIAL_CLIENTS, INITIAL_CONTRACTORS } from './constants';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { CostTable } from './components/CostTable';
@@ -15,8 +15,12 @@ import { ProjectOverviewView } from './components/ProjectOverview';
 import { AIModal } from './components/AIModal';
 import { AnalysisSelectorModal } from './components/AnalysisSelectorModal';
 import { ClientSelectorModal } from './components/ClientSelectorModal';
+import { CompanySelectorModal } from './components/CompanySelectorModal';
+import { QuantityCalculatorModal } from './components/QuantityCalculatorModal';
 import { generateUnitAnalysis } from './services/geminiService';
 import { Loader2 } from 'lucide-react';
+import { exportToExcel } from './utils/excelExport';
+import { importFromExcel } from './utils/excelImport';
 
 const App: React.FC = () => {
   const [analyses, setAnalyses] = useState<UnitAnalysis[]>(INITIAL_ANALYSES);
@@ -29,10 +33,16 @@ const App: React.FC = () => {
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
   const [isAnalysisSelectorOpen, setIsAnalysisSelectorOpen] = useState(false);
   const [activeEstimateItemId, setActiveEstimateItemId] = useState<string | null>(null);
+  
+  // Quantity Calculator State
+  const [isQuantityModalOpen, setIsQuantityModalOpen] = useState(false);
+  const [activeCalcItemId, setActiveCalcItemId] = useState<string | null>(null);
 
-  // Client Database State
+  // Client & Contractor Database State
   const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
+  const [contractors, setContractors] = useState<Contractor[]>(INITIAL_CONTRACTORS);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
 
   // Project Overview State
   const [projectOverview, setProjectOverview] = useState<ProjectOverview>({
@@ -226,9 +236,18 @@ const App: React.FC = () => {
   };
 
   const handleUpdateEstimateItem = (id: string, field: keyof EstimateEntry, value: any) => {
-    setEstimateItems(prev => prev.map(item => 
-        item.id === id ? { ...item, [field]: value } : item
-    ));
+    setEstimateItems(prev => prev.map(item => {
+        if (item.id !== id) return item;
+        
+        const updates: Partial<EstimateEntry> = { [field]: value };
+        
+        // If manually updating quantity, clear the formula to avoid confusion
+        if (field === 'quantity') {
+            updates.quantityFormula = undefined; 
+        }
+        
+        return { ...item, ...updates };
+    }));
   };
 
   const handleReorderEstimateItems = (fromIndex: number, toIndex: number) => {
@@ -258,11 +277,28 @@ const App: React.FC = () => {
     });
   };
 
+  // Quantity Calculator Handlers
+  const handleOpenCalculator = (itemId: string) => {
+    setActiveCalcItemId(itemId);
+    setIsQuantityModalOpen(true);
+  };
+
+  const handleApplyCalculatedQuantity = (quantity: number, formula: string) => {
+    if (activeCalcItemId) {
+        setEstimateItems(prev => prev.map(item => 
+            item.id === activeCalcItemId 
+                ? { ...item, quantity, quantityFormula: formula } 
+                : item
+        ));
+    }
+  };
+
   // Overview Handler
   const handleUpdateOverview = (field: keyof ProjectOverview, value: string) => {
     setProjectOverview(prev => ({ ...prev, [field]: value }));
   };
 
+  // Client Handlers
   const handleClientSelect = (client: Client) => {
     setProjectOverview(prev => ({ ...prev, client: client.name }));
     setIsClientModalOpen(false);
@@ -270,6 +306,16 @@ const App: React.FC = () => {
 
   const handleAddClient = (client: Client) => {
     setClients(prev => [...prev, client]);
+  };
+
+  // Contractor Handlers
+  const handleContractorSelect = (contractor: Company) => {
+    setProjectOverview(prev => ({ ...prev, contractor: contractor.name }));
+    setIsContractorModalOpen(false);
+  };
+
+  const handleAddContractor = (contractor: Company) => {
+    setContractors(prev => [...prev, contractor]);
   };
 
   const openAnalysisSelector = (itemId: string) => {
@@ -313,6 +359,38 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const handleExportExcel = () => {
+    exportToExcel(projectOverview, estimateItems, analyses);
+  };
+
+  const handleImportExcel = async (file: File) => {
+    if (!window.confirm("현재 프로젝트의 모든 데이터가 덮어씌워집니다. 계속하시겠습니까?")) {
+        return;
+    }
+
+    setAppState(AppState.LOADING);
+    try {
+        const data = await importFromExcel(file);
+        if (data.overview) setProjectOverview(prev => ({ ...prev, ...data.overview }));
+        if (data.analyses) setAnalyses(data.analyses);
+        if (data.estimateItems) setEstimateItems(data.estimateItems);
+        
+        if (data.analyses && data.analyses.length > 0) {
+            setSelectedId(data.analyses[0].id);
+        } else {
+            setSelectedId(null);
+        }
+        setAppState(AppState.SUCCESS);
+        alert("데이터를 성공적으로 불러왔습니다.");
+    } catch (error) {
+        console.error(error);
+        setAppState(AppState.ERROR);
+        alert("파일을 불러오는 중 오류가 발생했습니다.");
+    } finally {
+        setAppState(AppState.IDLE);
+    }
+  };
+
   const handleSidebarSelect = (id: string) => {
     setSelectedId(id);
     if (viewMode === 'LIST' || viewMode === 'ESTIMATE' || viewMode === 'SUMMARY_SHEET' || viewMode === 'COST_STATEMENT' || viewMode === 'OVERVIEW') {
@@ -327,6 +405,13 @@ const App: React.FC = () => {
     setViewMode(mode);
   };
 
+  // Logic to determine if Sidebar should be visible
+  const showSidebar = viewMode === 'ANALYSIS' || viewMode === 'SOURCE';
+
+  const activeCalcItem = useMemo(() => 
+    activeCalcItemId ? estimateItems.find(i => i.id === activeCalcItemId) : null
+  , [activeCalcItemId, estimateItems]);
+
   const renderContent = () => {
     if (viewMode === 'OVERVIEW') {
         return (
@@ -335,6 +420,7 @@ const App: React.FC = () => {
                     overview={projectOverview}
                     onUpdate={handleUpdateOverview}
                     onClientClick={() => setIsClientModalOpen(true)}
+                    onContractorClick={() => setIsContractorModalOpen(true)}
                 />
             </div>
         );
@@ -391,6 +477,7 @@ const App: React.FC = () => {
                     onLinkAnalysis={openAnalysisSelector}
                     onReorder={handleReorderEstimateItems}
                     onImportAnalyses={handleImportAnalysesToEstimate}
+                    onOpenCalculator={handleOpenCalculator}
                 />
             </div>
         );
@@ -457,13 +544,17 @@ const App: React.FC = () => {
       />
 
       <div className="flex-1 flex overflow-hidden">
-        <Sidebar 
-          analyses={analyses} 
-          selectedId={selectedId} 
-          onSelect={handleSidebarSelect}
-          onAddNew={() => setIsAIModalOpen(true)}
-          onDelete={handleDeleteAnalysis}
-        />
+        {showSidebar && (
+            <Sidebar 
+            analyses={analyses} 
+            selectedId={selectedId} 
+            onSelect={handleSidebarSelect}
+            onAddNew={() => setIsAIModalOpen(true)}
+            onDelete={handleDeleteAnalysis}
+            onExportExcel={handleExportExcel}
+            onImportExcel={handleImportExcel}
+            />
+        )}
 
         <main className="flex-1 flex overflow-hidden p-4 gap-4 bg-slate-100/50">
            {renderContent()}
@@ -491,6 +582,27 @@ const App: React.FC = () => {
         onSelect={handleClientSelect}
         onAddClient={handleAddClient}
       />
+
+      <CompanySelectorModal
+        isOpen={isContractorModalOpen}
+        onClose={() => setIsContractorModalOpen(false)}
+        companies={contractors}
+        onSelect={handleContractorSelect}
+        onAddCompany={handleAddContractor}
+        title="시공사 선택"
+        type="CONTRACTOR"
+      />
+
+      {activeCalcItem && (
+        <QuantityCalculatorModal
+            isOpen={isQuantityModalOpen}
+            onClose={() => setIsQuantityModalOpen(false)}
+            onApply={handleApplyCalculatedQuantity}
+            initialFormula={activeCalcItem.quantityFormula || ''}
+            initialQuantity={activeCalcItem.quantity}
+            itemName={activeCalcItem.name}
+        />
+      )}
     </div>
   );
 };
