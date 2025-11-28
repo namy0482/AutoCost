@@ -406,7 +406,7 @@ const App: React.FC = () => {
   };
 
   // Logic to determine if Sidebar should be visible
-  const showSidebar = viewMode === 'ANALYSIS' || viewMode === 'SOURCE';
+  const showSidebar = viewMode === 'LIST' || viewMode === 'ESTIMATE' || viewMode === 'SUMMARY_SHEET' || viewMode === 'COST_STATEMENT' || viewMode === 'OVERVIEW' || viewMode === 'ANALYSIS' || viewMode === 'SOURCE';
 
   const activeCalcItem = useMemo(() => 
     activeCalcItemId ? estimateItems.find(i => i.id === activeCalcItemId) : null
@@ -607,7 +607,4 @@ const App: React.FC = () => {
   );
 };
 
-
 export default App;
-
-
